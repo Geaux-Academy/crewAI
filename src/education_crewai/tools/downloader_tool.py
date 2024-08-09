@@ -1,22 +1,16 @@
-# src/education_crewai/tools/downloader_tool.py
 import os
 import requests
-import boto3
 import openai
 from crewai_tools import tool
-
-# Initialize the S3 client
-s3 = boto3.client("s3")
 
 # Initialize OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
 @tool
-def download_and_process_content(url, bucket_name, subject, grade_level):
+def download_and_store_in_blob(url, subject, grade_level):
     """
     Downloads content from the given URL, processes it using OpenAI,
-    and stores the processed content in the specified S3 bucket, organized by subject and grade level.
+    and stores the processed content in Vercel Blob, organized by subject and grade level.
     """
     try:
         # Download the content
@@ -35,21 +29,31 @@ def download_and_process_content(url, bucket_name, subject, grade_level):
         )
 
         # Generate a filename based on the URL
-        filename = url.split("/")[-1] or "processed_content"
+        filename = url.split("/")[-1] or "processed_content.txt"
 
-        # Determine the S3 key (path in the bucket)
-        s3_key = f"{subject}/{grade_level}/{filename}.txt"
+        # Vercel Blob URL and Headers
+        blob_api_url = f"https://api.vercel.com/v1/blob"  # Adjust this URL based on the actual Vercel Blob API endpoint
+        headers = {
+            "Authorization": f"Bearer {os.getenv('BLOB_READ_WRITE_TOKEN')}",  # Use the token from the environment
+            "Content-Type": "application/octet-stream",
+        }
 
-        # Upload the summary to S3
-        s3.put_object(
-            Bucket=bucket_name, Key=s3_key, Body=content_summary.encode("utf-8")
+        # Upload the content to Vercel Blob
+        blob_response = requests.post(
+            blob_api_url,
+            headers=headers,
+            data=content_summary.encode('utf-8'),  # Ensure your content is encoded as needed
+            params={"filename": f"{subject}/{grade_level}/{filename}"}  # Adjust parameters based on the Vercel API documentation
         )
 
-        return f"Successfully processed and stored content in {bucket_name}/{s3_key}"
+        if blob_response.status_code == 200:
+            return f"Successfully processed and stored content in Vercel Blob under {subject}/{grade_level}/{filename}"
+        else:
+            return f"Failed to store content in Vercel Blob: {blob_response.text}"
 
     except requests.exceptions.RequestException as e:
         return f"Failed to download content from {url}: {e}"
     except openai.error.OpenAIError as e:
         return f"Failed to process content using OpenAI: {e}"
     except Exception as e:
-        return f"Failed to store content in S3: {e}"
+        return f"An unexpected error occurred: {e}"
