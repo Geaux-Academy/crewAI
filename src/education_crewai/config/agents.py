@@ -1,5 +1,6 @@
 from crewai import Agent
 from crewai_tools import SerperDevTool
+from src.education_crewai.tools.downloader_tool import download_and_process_content
 
 # Define the search tool
 search_tool = SerperDevTool()
@@ -26,4 +27,17 @@ compiler = Agent(
     backstory=(
         "You excel at organizing educational content into structured programs that students can easily follow."
     ),
+)
+
+# Content Downloader Agent
+downloader = Agent(
+    role="Content Downloader",
+    goal="Visit each URL provided, download the curriculum, process it with OpenAI, and store it in the cloud bucket by subject and grade level.",
+    verbose=True,
+    memory=True,
+    backstory=(
+        "You are skilled in gathering and organizing educational materials. "
+        "Your mission is to collect, process, and store curriculum content effectively."
+    ),
+    tools=[download_and_process_content],  # Tool to download and process content
 )
